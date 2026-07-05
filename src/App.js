@@ -1,4 +1,4 @@
-import React, { useState } from 'react'; // v2
+import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import { Spinner } from './components/UI';
 import Login         from './pages/Login';
@@ -8,6 +8,7 @@ import Cobradores    from './pages/Cobradores';
 import Cobranzas     from './pages/Cobranzas';
 import Reportes      from './pages/Reportes';
 import Usuarios      from './pages/Usuarios';
+import ImportarMiembros from './pages/ImportarMiembros';
 import Configuracion from './pages/Configuracion';
 import { useSupabase } from './hooks/useSupabase';
 import { useAuth }     from './hooks/useAuth';
@@ -123,7 +124,11 @@ export default function App() {
       case 'usuarios':
         if (!puede.gestionarUsuarios) return <AccesoDenegado />;
         return <Usuarios data={data} />;
+      case 'importar':
+        if (!puede.gestionarMiembros) return <AccesoDenegado />;
+        return <ImportarMiembros data={data} onImportado={() => { cargarTodo(); setTab('miembros'); }} />;
       case 'configuracion':
+
         if (!puede.configurar) return <AccesoDenegado />;
         return <Configuracion data={data} actualizarCuotas={actualizarCuotas} agregarTemplo={agregarTemplo} eliminarTemplo={eliminarTemplo} />;
       default:
