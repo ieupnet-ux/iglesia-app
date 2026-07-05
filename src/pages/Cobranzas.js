@@ -1,3 +1,4 @@
+// v2.0 - deudas anuales
 import React, { useState } from 'react';
 import { Card, Button, Modal, FormField, Badge, Toast } from '../components/UI';
 
