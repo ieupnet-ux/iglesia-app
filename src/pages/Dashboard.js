@@ -1,9 +1,9 @@
 import React from 'react';
-import { MetricCard, Card, CardHeader, Badge, DeudaBar } from '../components/UI';
+import { MetricCard, Card, CardHeader, DeudaBar } from '../components/UI';
 import logoGold from '../assets/logo-gold.png';
 
 export default function Dashboard({ data }) {
-  const { miembros, cobradores, cobranzas, templos, configuracion } = data;
+  const { miembros, cobradores, cobranzas, templos } = data;
 
   const totalCobrado    = cobranzas.reduce((s, c) => s + c.monto, 0);
   const totalDeuda      = miembros.reduce((s, m) => s + m.deuda, 0);

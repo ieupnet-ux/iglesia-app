@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, CardHeader, Button, FormField, Badge, Toast, Divider } from '../components/UI';
+import { Card, CardHeader, Button, FormField, Toast, Divider } from '../components/UI';
 import logoGold from '../assets/logo-gold.png';
 import logoNavy from '../assets/logo-navy.png';
 import logoWhite from '../assets/logo-white.png';
@@ -15,8 +15,6 @@ export default function Configuracion({ data, actualizarCuotas, agregarTemplo, e
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
-
-  const fmt = (n) => n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 });
 
   const handleGuardarCuotas = async () => {
     setSaving(true);

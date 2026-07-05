@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Card, CardHeader, Button, Modal, FormField, Badge, Toast } from '../components/UI';
+import { Card, Button, Modal, FormField, Badge, Toast } from '../components/UI';
 
 const ROL_CONFIG = {
   admin:    { label: 'Admin',    variant: 'navy',    desc: 'Acceso total al sistema' },
@@ -176,7 +176,6 @@ export default function Usuarios({ data }) {
                 No hay usuarios registrados
               </td></tr>
             ) : usuarios.map(u => {
-              const rc = ROL_CONFIG[u.rol] || ROL_CONFIG.consulta;
               return (
                 <tr key={u.id} style={{ borderBottom: '1px solid var(--gray-100)' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--gray-50)'}

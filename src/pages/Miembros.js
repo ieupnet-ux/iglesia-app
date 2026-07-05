@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, CardHeader, Badge, Button, Modal, FormField, DeudaBar, Toast } from '../components/UI';
+import { Card, Badge, Button, Modal, FormField, DeudaBar, Toast } from '../components/UI';
 
 export default function Miembros({ data, agregarMiembro, eliminarMiembro }) {
   const { miembros, templos, configuracion } = data;
