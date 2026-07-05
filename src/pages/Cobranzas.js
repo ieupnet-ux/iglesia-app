@@ -1,8 +1,8 @@
-// v2.0 - deudas anuales
+// v3.0 - cobro multi-año
 import React, { useState } from 'react';
 import { Card, Button, Modal, FormField, Badge, Toast } from '../components/UI';
 
-export default function Cobranzas({ data, registrarCobranza, eliminarCobranza, perfilActual }) {
+export default function Cobranzas({ data, registrarCobranza, eliminarCobranza }) {
   const { cobranzas, miembros, cobradores, templos, deudasAnuales } = data;
   const [modalOpen, setModalOpen] = useState(false);
   const [toast, setToast]         = useState(null);
@@ -12,15 +12,13 @@ export default function Cobranzas({ data, registrarCobranza, eliminarCobranza, p
   const [busqueda, setBusqueda]   = useState('');
 
   const today = new Date().toISOString().split('T')[0];
-  const anioActual = new Date().getFullYear();
 
   const [form, setForm] = useState({
-    cobrador_id: '',
-    miembro_id: '',
-    deuda_anual_id: '',
-    monto: '',
+    cobrador_id:   '',
+    miembro_id:    '',
     numero_recibo: '',
-    fecha: today,
+    fecha:         today,
+    aniosSeleccionados: {}, // { deuda_anual_id: monto }
   });
 
   const showToast = (msg, type = 'success') => {
@@ -28,43 +26,68 @@ export default function Cobranzas({ data, registrarCobranza, eliminarCobranza, p
     setTimeout(() => setToast(null), 3500);
   };
 
-  // Deudas del miembro seleccionado (ordenadas por año desc)
+  // Deudas pendientes del miembro seleccionado ordenadas por año asc (más vieja primero)
   const deudasDelMiembro = form.miembro_id
     ? deudasAnuales
         .filter(d => d.miembro_id === parseInt(form.miembro_id) && !d.pagado)
-        .sort((a, b) => b.anio - a.anio)
+        .sort((a, b) => a.anio - b.anio)
     : [];
 
-  const deudaSeleccionada = deudasAnuales.find(d => d.id === parseInt(form.deuda_anual_id));
-
-  // Al cambiar miembro, limpiar deuda seleccionada
   const handleMiembroChange = (miembro_id) => {
-    setForm(f => ({ ...f, miembro_id, deuda_anual_id: '', monto: '' }));
+    setForm(f => ({ ...f, miembro_id, aniosSeleccionados: {} }));
   };
 
-  // Al seleccionar año/deuda, prellenar el monto con el saldo pendiente
-  const handleDeudaChange = (deuda_anual_id) => {
-    const deuda = deudasAnuales.find(d => d.id === parseInt(deuda_anual_id));
-    setForm(f => ({ ...f, deuda_anual_id, monto: deuda ? deuda.saldo : '' }));
+  // Seleccionar/deseleccionar un año con su saldo completo
+  const toggleAnio = (deudaId, saldo) => {
+    setForm(f => {
+      const sel = { ...f.aniosSeleccionados };
+      if (sel[deudaId] !== undefined) {
+        delete sel[deudaId];
+      } else {
+        sel[deudaId] = saldo;
+      }
+      return { ...f, aniosSeleccionados: sel };
+    });
   };
+
+  // Cambiar monto parcial de un año
+  const cambiarMonto = (deudaId, monto) => {
+    setForm(f => ({ ...f, aniosSeleccionados: { ...f.aniosSeleccionados, [deudaId]: monto } }));
+  };
+
+  // Seleccionar todos los años pendientes
+  const seleccionarTodos = () => {
+    const todos = {};
+    deudasDelMiembro.forEach(d => { todos[d.id] = d.saldo; });
+    setForm(f => ({ ...f, aniosSeleccionados: todos }));
+  };
+
+  const totalACobrar = Object.values(form.aniosSeleccionados)
+    .reduce((s, m) => s + (parseInt(m) || 0), 0);
+
+  const aniosSeleccionadosCount = Object.keys(form.aniosSeleccionados).length;
 
   const handleGuardar = async () => {
-    if (!form.cobrador_id || !form.miembro_id || !form.deuda_anual_id || !form.monto || !form.numero_recibo) return;
-    const deuda = deudasAnuales.find(d => d.id === parseInt(form.deuda_anual_id));
+    if (!form.cobrador_id || !form.miembro_id || !form.numero_recibo || aniosSeleccionadosCount === 0) return;
     setSaving(true);
     try {
-      await registrarCobranza({
-        cobrador_id:   parseInt(form.cobrador_id),
-        miembro_id:    parseInt(form.miembro_id),
-        deuda_anual_id: parseInt(form.deuda_anual_id),
-        anio:          deuda?.anio,
-        monto:         parseInt(form.monto),
-        numero_recibo: form.numero_recibo,
-        fecha:         form.fecha,
-      });
-      setForm({ cobrador_id: form.cobrador_id, miembro_id: '', deuda_anual_id: '', monto: '', numero_recibo: '', fecha: today });
+      // Registrar una cobranza por cada año seleccionado
+      for (const [deudaId, monto] of Object.entries(form.aniosSeleccionados)) {
+        if (!monto || parseInt(monto) === 0) continue;
+        const deuda = deudasAnuales.find(d => d.id === parseInt(deudaId));
+        await registrarCobranza({
+          cobrador_id:    parseInt(form.cobrador_id),
+          miembro_id:     parseInt(form.miembro_id),
+          deuda_anual_id: parseInt(deudaId),
+          anio:           deuda?.anio,
+          monto:          parseInt(monto),
+          numero_recibo:  form.numero_recibo,
+          fecha:          form.fecha,
+        });
+      }
+      setForm({ cobrador_id: form.cobrador_id, miembro_id: '', aniosSeleccionados: {}, numero_recibo: '', fecha: today });
       setModalOpen(false);
-      showToast('Cobranza registrada correctamente');
+      showToast(`Cobranza registrada — ${aniosSeleccionadosCount} año${aniosSeleccionadosCount > 1 ? 's' : ''} abonado${aniosSeleccionadosCount > 1 ? 's' : ''}`);
     } catch (e) {
       showToast(e.message, 'error');
     } finally {
@@ -84,7 +107,6 @@ export default function Cobranzas({ data, registrarCobranza, eliminarCobranza, p
 
   const fmt = (n) => n?.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 });
 
-  // Años disponibles para filtro
   const aniosDisponibles = [...new Set(cobranzas.map(c => c.anio).filter(Boolean))].sort((a,b) => b - a);
 
   const filtradas = cobranzas
@@ -162,18 +184,14 @@ export default function Cobranzas({ data, registrarCobranza, eliminarCobranza, p
                 >
                   <td style={{ padding: '12px 16px', color: 'var(--gray-600)', fontSize: 13 }}>{c.fecha}</td>
                   <td style={{ padding: '12px 16px' }}>
-                    <span style={{
-                      fontFamily: 'monospace', fontSize: 13, fontWeight: 700,
-                      color: 'var(--navy)', background: 'var(--gray-100)',
-                      padding: '3px 8px', borderRadius: 4,
-                    }}>{c.numero_recibo}</span>
+                    <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: 'var(--navy)', background: 'var(--gray-100)', padding: '3px 8px', borderRadius: 4 }}>
+                      {c.numero_recibo}
+                    </span>
                   </td>
                   <td style={{ padding: '12px 16px' }}>
-                    <span style={{
-                      background: 'var(--gold-pale)', color: 'var(--warning)',
-                      fontWeight: 700, fontSize: 13,
-                      padding: '3px 10px', borderRadius: 99,
-                    }}>{c.anio || '—'}</span>
+                    <span style={{ background: 'var(--gold-pale)', color: 'var(--warning)', fontWeight: 700, fontSize: 13, padding: '3px 10px', borderRadius: 99 }}>
+                      {c.anio || '—'}
+                    </span>
                   </td>
                   <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--navy)' }}>{cobrador?.nombre || '—'}</td>
                   <td style={{ padding: '12px 16px', color: 'var(--gray-600)', fontSize: 13 }}>{templo?.nombre || '—'}</td>
@@ -197,83 +215,135 @@ export default function Cobranzas({ data, registrarCobranza, eliminarCobranza, p
       </Card>
 
       {/* Modal nueva cobranza */}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Registrar cobranza" width={520}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Registrar cobranza" width={540}>
         <div style={{ display: 'grid', gap: 16 }}>
 
-          {/* Cobrador */}
-          <FormField label="Cobrador" required>
-            <select value={form.cobrador_id} onChange={e => setForm(f => ({ ...f, cobrador_id: e.target.value }))}>
-              <option value="">Seleccionar cobrador…</option>
-              {cobradores.map(c => {
-                const t = templos.find(t => t.id === c.templo_id);
-                return <option key={c.id} value={c.id}>{c.nombre} — {t?.nombre}</option>;
-              })}
-            </select>
-          </FormField>
+          {/* Cobrador y miembro */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <FormField label="Cobrador" required>
+              <select value={form.cobrador_id} onChange={e => setForm(f => ({ ...f, cobrador_id: e.target.value }))}>
+                <option value="">Seleccionar…</option>
+                {cobradores.map(c => {
+                  const t = templos.find(t => t.id === c.templo_id);
+                  return <option key={c.id} value={c.id}>{c.nombre} — {t?.nombre}</option>;
+                })}
+              </select>
+            </FormField>
+            <FormField label="Miembro" required>
+              <select value={form.miembro_id} onChange={e => handleMiembroChange(e.target.value)}>
+                <option value="">Seleccionar…</option>
+                {miembros.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+              </select>
+            </FormField>
+          </div>
 
-          {/* Miembro */}
-          <FormField label="Miembro" required>
-            <select value={form.miembro_id} onChange={e => handleMiembroChange(e.target.value)}>
-              <option value="">Seleccionar miembro…</option>
-              {miembros.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-            </select>
-          </FormField>
-
-          {/* Año que abona */}
+          {/* Años adeudados */}
           {form.miembro_id && (
-            <FormField label="Año que abona" required>
+            <FormField label="Años a abonar">
               {deudasDelMiembro.length === 0 ? (
-                <div style={{
-                  background: 'var(--success-bg)', color: 'var(--success)',
-                  borderRadius: 8, padding: '10px 14px', fontSize: 13,
-                }}>
+                <div style={{ background: 'var(--success-bg)', color: 'var(--success)', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
                   ✓ Este miembro no tiene deudas pendientes
                 </div>
               ) : (
-                <select value={form.deuda_anual_id} onChange={e => handleDeudaChange(e.target.value)}>
-                  <option value="">Seleccionar año…</option>
-                  {deudasDelMiembro.map(d => (
-                    <option key={d.id} value={d.id}>
-                      {d.anio} — Saldo pendiente: ${d.saldo.toLocaleString('es-AR')} (cuota: ${d.importe.toLocaleString('es-AR')})
-                    </option>
-                  ))}
-                </select>
+                <div style={{ border: '1.5px solid var(--gray-200)', borderRadius: 8, overflow: 'hidden' }}>
+                  {/* Encabezado con botón seleccionar todos */}
+                  <div style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '10px 14px', background: 'var(--gray-50)',
+                    borderBottom: '1px solid var(--gray-200)',
+                  }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--gray-600)' }}>
+                      {deudasDelMiembro.length} año{deudasDelMiembro.length > 1 ? 's' : ''} pendiente{deudasDelMiembro.length > 1 ? 's' : ''}
+                    </span>
+                    <button
+                      onClick={seleccionarTodos}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        fontSize: 12, fontWeight: 600, color: 'var(--navy)',
+                        textDecoration: 'underline', padding: 0,
+                      }}
+                    >
+                      Seleccionar todos
+                    </button>
+                  </div>
+
+                  {/* Lista de años */}
+                  {deudasDelMiembro.map(d => {
+                    const seleccionado = form.aniosSeleccionados[d.id] !== undefined;
+                    return (
+                      <div key={d.id} style={{
+                        display: 'grid',
+                        gridTemplateColumns: '32px 60px 1fr 1fr',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '10px 14px',
+                        borderBottom: '1px solid var(--gray-100)',
+                        background: seleccionado ? 'rgba(28,43,75,0.03)' : 'transparent',
+                      }}>
+                        {/* Checkbox */}
+                        <input
+                          type="checkbox"
+                          checked={seleccionado}
+                          onChange={() => toggleAnio(d.id, d.saldo)}
+                          style={{ width: 16, height: 16, cursor: 'pointer' }}
+                        />
+                        {/* Año */}
+                        <span style={{
+                          fontWeight: 700, fontSize: 14,
+                          color: seleccionado ? 'var(--navy)' : 'var(--gray-600)',
+                        }}>{d.anio}</span>
+                        {/* Saldo */}
+                        <div style={{ fontSize: 12, color: 'var(--gray-400)' }}>
+                          <div>Cuota: {fmt(d.importe)}</div>
+                          <div style={{ color: 'var(--danger)', fontWeight: 600 }}>Debe: {fmt(d.saldo)}</div>
+                        </div>
+                        {/* Input monto */}
+                        {seleccionado ? (
+                          <input
+                            type="number"
+                            min="1"
+                            max={d.saldo}
+                            value={form.aniosSeleccionados[d.id]}
+                            onChange={e => cambiarMonto(d.id, e.target.value)}
+                            style={{ fontSize: 13, padding: '5px 8px' }}
+                          />
+                        ) : (
+                          <div style={{ fontSize: 12, color: 'var(--gray-200)', textAlign: 'right' }}>—</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </FormField>
           )}
 
-          {/* Info deuda seleccionada */}
-          {deudaSeleccionada && (
+          {/* Total a cobrar */}
+          {aniosSeleccionadosCount > 0 && (
             <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10,
-              background: 'var(--warning-bg)', borderRadius: 8, padding: '12px 16px',
+              display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+              gap: 12, background: 'var(--navy)', borderRadius: 10, padding: '14px 16px',
             }}>
-              <div style={{ fontSize: 12 }}>
-                <div style={{ color: 'var(--gray-400)', marginBottom: 2 }}>Año</div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--navy)' }}>{deudaSeleccionada.anio}</div>
+              <div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 3 }}>Años seleccionados</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--white)' }}>{aniosSeleccionadosCount}</div>
               </div>
-              <div style={{ fontSize: 12 }}>
-                <div style={{ color: 'var(--gray-400)', marginBottom: 2 }}>Cuota original</div>
-                <div style={{ fontWeight: 700, color: 'var(--navy)' }}>{fmt(deudaSeleccionada.importe)}</div>
+              <div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 3 }}>Total a cobrar</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--gold)' }}>{fmt(totalACobrar)}</div>
               </div>
-              <div style={{ fontSize: 12 }}>
-                <div style={{ color: 'var(--gray-400)', marginBottom: 2 }}>Saldo pendiente</div>
-                <div style={{ fontWeight: 700, color: 'var(--danger)' }}>{fmt(deudaSeleccionada.saldo)}</div>
+              <div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 3 }}>Un solo recibo</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>
+                  {form.numero_recibo || '—'}
+                </div>
               </div>
             </div>
           )}
 
-          {/* Monto y recibo */}
-          {form.deuda_anual_id && (
+          {/* Recibo y fecha */}
+          {form.miembro_id && deudasDelMiembro.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <FormField label="Monto que paga" required>
-                <input
-                  type="number" min="1"
-                  max={deudaSeleccionada?.saldo}
-                  value={form.monto}
-                  onChange={e => setForm(f => ({ ...f, monto: e.target.value }))}
-                />
-              </FormField>
               <FormField label="N° Recibo (talonario)" required>
                 <input
                   placeholder="Ej: T01-00123"
@@ -281,13 +351,14 @@ export default function Cobranzas({ data, registrarCobranza, eliminarCobranza, p
                   onChange={e => setForm(f => ({ ...f, numero_recibo: e.target.value }))}
                 />
               </FormField>
+              <FormField label="Fecha de cobro">
+                <input
+                  type="date"
+                  value={form.fecha}
+                  onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))}
+                />
+              </FormField>
             </div>
-          )}
-
-          {form.deuda_anual_id && (
-            <FormField label="Fecha de cobro">
-              <input type="date" value={form.fecha} onChange={e => setForm(f => ({ ...f, fecha: e.target.value }))} />
-            </FormField>
           )}
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
@@ -295,9 +366,14 @@ export default function Cobranzas({ data, registrarCobranza, eliminarCobranza, p
             <Button
               variant="gold"
               onClick={handleGuardar}
-              disabled={saving || !form.cobrador_id || !form.miembro_id || !form.deuda_anual_id || !form.monto || !form.numero_recibo}
+              disabled={saving || !form.cobrador_id || !form.miembro_id || aniosSeleccionadosCount === 0 || !form.numero_recibo || totalACobrar === 0}
             >
-              {saving ? 'Guardando…' : 'Registrar cobranza'}
+              {saving
+                ? 'Registrando…'
+                : aniosSeleccionadosCount > 1
+                  ? `Registrar ${aniosSeleccionadosCount} años — ${fmt(totalACobrar)}`
+                  : `Registrar cobranza — ${fmt(totalACobrar)}`
+              }
             </Button>
           </div>
         </div>
