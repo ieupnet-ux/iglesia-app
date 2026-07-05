@@ -1,0 +1,75 @@
+/* ============================================================
+   IGLESIA EVANGÉLICA UNIÓN PENTECOSTAL — Estilos globales
+   Paleta: Navy #1C2B4B · Gold #C89B3C · White #FFFFFF
+   ============================================================ */
+
+:root {
+  --navy:       #1C2B4B;
+  --navy-light: #243358;
+  --navy-dark:  #131E35;
+  --gold:       #C89B3C;
+  --gold-light: #E0B554;
+  --gold-pale:  #F5EDD8;
+  --white:      #FFFFFF;
+  --gray-50:    #F8F9FB;
+  --gray-100:   #EEF0F5;
+  --gray-200:   #D8DCE8;
+  --gray-400:   #8892A8;
+  --gray-600:   #4A5568;
+  --gray-800:   #1A202C;
+  --danger:     #C0392B;
+  --danger-bg:  #FDEDEC;
+  --success:    #1A6B3C;
+  --success-bg: #EAF5EE;
+  --warning:    #92600A;
+  --warning-bg: #FEF3D7;
+
+  --font-sans:    'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Georgia', 'Times New Roman', serif;
+  --radius-sm:  6px;
+  --radius:     10px;
+  --radius-lg:  16px;
+  --shadow-sm:  0 1px 3px rgba(28,43,75,0.10);
+  --shadow-md:  0 4px 16px rgba(28,43,75,0.12);
+  --shadow-lg:  0 8px 32px rgba(28,43,75,0.16);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--gray-800);
+  background: var(--gray-50);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--gray-100); }
+::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 99px; }
+
+/* Inputs y selects base */
+input, select, textarea {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--gray-800);
+  background: var(--white);
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(28,43,75,0.10);
+}
+input::placeholder { color: var(--gray-400); }
+
+button { cursor: pointer; font-family: var(--font-sans); }
+
+a { color: var(--navy); text-decoration: none; }
+a:hover { text-decoration: underline; }
