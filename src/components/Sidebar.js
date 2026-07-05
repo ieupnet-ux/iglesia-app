@@ -147,6 +147,22 @@ export default function Sidebar({ tab, setTab, perfil, onSignOut }) {
           </button>
         </div>
       )}
+        {!perfil && onSignOut && (
+  <div style={{ padding: '14px 16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+    <button
+      onClick={onSignOut}
+      style={{
+        width: '100%', padding: '7px 12px',
+        background: 'rgba(255,255,255,0.06)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        borderRadius: 7, color: 'rgba(255,255,255,0.5)',
+        fontSize: 12, cursor: 'pointer',
+      }}
+    >
+      Cerrar sesión
+    </button>
+  </div>
+)}
     </aside>
   );
 }
