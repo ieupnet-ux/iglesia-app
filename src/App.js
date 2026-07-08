@@ -9,6 +9,7 @@ import Cobranzas     from './pages/Cobranzas';
 import Reportes      from './pages/Reportes';
 import Usuarios      from './pages/Usuarios';
 import ImportarMiembros from './pages/ImportarMiembros';
+import Asamblea        from './pages/Asamblea';
 import Configuracion from './pages/Configuracion';
 import { useSupabase } from './hooks/useSupabase';
 import { useAuth }     from './hooks/useAuth';
@@ -124,6 +125,8 @@ export default function App() {
       case 'usuarios':
         if (!puede.gestionarUsuarios) return <AccesoDenegado />;
         return <Usuarios data={data} />;
+      case 'asamblea':
+        return <Asamblea data={data} />;
       case 'importar':
         if (!puede.gestionarMiembros) return <AccesoDenegado />;
         return <ImportarMiembros data={data} onImportado={() => { cargarTodo(); setTab('miembros'); }} />;
