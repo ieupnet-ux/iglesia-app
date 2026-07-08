@@ -148,6 +148,7 @@ export function Modal({ open, onClose, title, children, width = 480 }) {
   return (
     <div
       onClick={onClose}
+      className="modal-overlay"
       style={{
         position: 'fixed', inset: 0, zIndex: 999,
         background: 'rgba(19,30,53,0.55)',
@@ -157,6 +158,7 @@ export function Modal({ open, onClose, title, children, width = 480 }) {
     >
       <div
         onClick={e => e.stopPropagation()}
+        className="modal-inner"
         style={{
           background: 'var(--white)',
           borderRadius: 'var(--radius-lg)',
@@ -165,26 +167,31 @@ export function Modal({ open, onClose, title, children, width = 480 }) {
           maxWidth: width,
           maxHeight: '90vh',
           overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         <div style={{
-          padding: '20px 24px',
+          padding: '16px 20px',
           borderBottom: '1px solid var(--gray-100)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          position: 'sticky',
+          top: 0,
+          background: 'var(--white)',
+          zIndex: 1,
         }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--navy)' }}>{title}</div>
           <button
             onClick={onClose}
             style={{
-              background: 'none', border: 'none', fontSize: 20,
+              background: 'none', border: 'none', fontSize: 22,
               color: 'var(--gray-400)', cursor: 'pointer', lineHeight: 1,
-              padding: '2px 6px', borderRadius: 4,
+              padding: '4px 8px', borderRadius: 4, minWidth: 36, minHeight: 36,
             }}
           >×</button>
         </div>
-        <div style={{ padding: '24px' }}>{children}</div>
+        <div style={{ padding: '20px' }}>{children}</div>
       </div>
     </div>
   );
