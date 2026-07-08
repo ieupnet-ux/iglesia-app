@@ -9,6 +9,7 @@ const NAV = [
   { id: 'reportes',      icon: '▦', label: 'Reportes',       rol: ['admin','consulta'] },
   { id: 'usuarios',      icon: '◉', label: 'Usuarios',       rol: ['admin'] },
   { id: 'importar',      icon: '⇪', label: 'Importar socios', rol: ['admin'] },
+  { id: 'asamblea',      icon: '🏛', label: 'Asamblea',       rol: ['admin','cobrador'] },
   { id: 'configuracion', icon: '◧', label: 'Configuración',  rol: ['admin'] },
 ];
 
