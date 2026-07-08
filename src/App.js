@@ -1,81 +1,69 @@
+// v3.0 - mobile responsive
 import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import { Spinner } from './components/UI';
-import Login         from './pages/Login';
-import Dashboard     from './pages/Dashboard';
-import Miembros      from './pages/Miembros';
-import Cobradores    from './pages/Cobradores';
-import Cobranzas     from './pages/Cobranzas';
-import Reportes      from './pages/Reportes';
-import Usuarios      from './pages/Usuarios';
+import Login           from './pages/Login';
+import Dashboard       from './pages/Dashboard';
+import Miembros        from './pages/Miembros';
+import Cobradores      from './pages/Cobradores';
+import Cobranzas       from './pages/Cobranzas';
+import Reportes        from './pages/Reportes';
+import Usuarios        from './pages/Usuarios';
+import Configuracion   from './pages/Configuracion';
 import ImportarMiembros from './pages/ImportarMiembros';
 import Asamblea        from './pages/Asamblea';
-import Configuracion from './pages/Configuracion';
 import { useSupabase } from './hooks/useSupabase';
 import { useAuth }     from './hooks/useAuth';
+import logoWhite       from './assets/logo-white.png';
+
+const TAB_LABELS = {
+  dashboard:     'Dashboard',
+  miembros:      'Miembros',
+  cobradores:    'Cobradores',
+  cobranzas:     'Cobranzas',
+  reportes:      'Reportes',
+  asamblea:      'Asamblea',
+  usuarios:      'Usuarios',
+  importar:      'Importar socios',
+  configuracion: 'Configuración',
+};
 
 export default function App() {
-  const [tab, setTab] = useState('dashboard');
-  const { session, perfil, loadingAuth, signIn, signOut, puede } = useAuth();
+  const [tab, setTab]           = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const { session, perfil, loadingAuth, signIn, signOut, puede } = useAuth();
   const {
     data, loading, error, cargarTodo,
     agregarTemplo, eliminarTemplo,
     actualizarCuotas,
-    agregarMiembro, eliminarMiembro, agregarDeudaManual, generarDeudasAnio,
+    agregarMiembro, eliminarMiembro,
     agregarCobrador, eliminarCobrador,
     registrarCobranza, eliminarCobranza,
+    generarDeudasAnio, agregarDeudaManual,
   } = useSupabase();
 
-  // --- Pantalla de carga inicial ---
   if (loadingAuth) {
     return (
-      <div style={{
-        minHeight: '100vh', background: 'var(--navy)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <div style={{
-          width: 40, height: 40,
-          border: '3px solid rgba(200,155,60,0.3)',
-          borderTopColor: 'var(--gold)',
-          borderRadius: '50%',
-          animation: 'spin 0.7s linear infinite',
-        }} />
+      <div style={{ minHeight: '100vh', background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 40, height: 40, border: '3px solid rgba(200,155,60,0.3)', borderTopColor: 'var(--gold)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
-  // --- Pantalla de login ---
-  if (!session) {
-    return <Login onLogin={signIn} />;
-  }
+  if (!session) return <Login onLogin={signIn} />;
 
-  // --- Verificar perfil activo ---
   if (perfil && !perfil.activo) {
     return (
-      <div style={{
-        minHeight: '100vh', background: 'var(--navy)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <div style={{
-          background: 'var(--white)', borderRadius: 16,
-          padding: '36px 40px', textAlign: 'center', maxWidth: 380,
-        }}>
+      <div style={{ minHeight: '100vh', background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ background: 'var(--white)', borderRadius: 16, padding: '36px 32px', textAlign: 'center', maxWidth: 360, width: '100%' }}>
           <div style={{ fontSize: 40, marginBottom: 16 }}>🚫</div>
-          <h2 style={{ color: 'var(--navy)', marginBottom: 8 }}>Cuenta deshabilitada</h2>
-          <p style={{ color: 'var(--gray-400)', fontSize: 14 }}>
-            Tu cuenta fue deshabilitada por el administrador.<br />
-            Contactá a la administración para reactivarla.
+          <h2 style={{ color: 'var(--navy)', marginBottom: 8, fontSize: 18 }}>Cuenta deshabilitada</h2>
+          <p style={{ color: 'var(--gray-400)', fontSize: 14, marginBottom: 20 }}>
+            Tu cuenta fue deshabilitada. Contactá al administrador.
           </p>
-          <button
-            onClick={signOut}
-            style={{
-              marginTop: 20, padding: '10px 24px',
-              background: 'var(--navy)', color: 'var(--white)',
-              border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600,
-            }}
-          >
+          <button onClick={signOut} style={{ padding: '10px 24px', background: 'var(--navy)', color: 'var(--white)', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
             Cerrar sesión
           </button>
         </div>
@@ -86,35 +74,34 @@ export default function App() {
   const renderPage = () => {
     if (loading) return <Spinner />;
     if (error) return (
-      <div style={{
-        background: 'var(--danger-bg)', border: '1px solid var(--danger)',
-        borderRadius: 12, padding: '24px 28px', color: 'var(--danger)',
-      }}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>Error de conexión</div>
+      <div style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger)', borderRadius: 12, padding: '20px', color: 'var(--danger)' }}>
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>Error de conexión</div>
         <div style={{ fontSize: 13 }}>{error}</div>
-        <button onClick={cargarTodo} style={{
-          marginTop: 14, padding: '8px 16px',
-          background: 'var(--danger)', color: 'var(--white)',
-          border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600,
-        }}>Reintentar</button>
+        <button onClick={cargarTodo} style={{ marginTop: 12, padding: '8px 16px', background: 'var(--danger)', color: 'var(--white)', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+          Reintentar
+        </button>
       </div>
     );
 
-    // Redirigir cobradores al tab correcto si intentan acceder a uno que no pueden
-    const tabEfectivo = tab;
-
-    switch (tabEfectivo) {
+    switch (tab) {
       case 'dashboard':
         return <Dashboard data={data} />;
       case 'miembros':
         if (!puede.verTodo) return <AccesoDenegado />;
-        return <Miembros data={data} agregarMiembro={puede.gestionarMiembros ? agregarMiembro : null} eliminarMiembro={puede.gestionarMiembros ? eliminarMiembro : null} agregarDeudaManual={puede.gestionarMiembros ? agregarDeudaManual : null} generarDeudasAnio={puede.gestionarMiembros ? generarDeudasAnio : null} />;
+        return <Miembros data={data}
+          agregarMiembro={puede.gestionarMiembros ? agregarMiembro : null}
+          eliminarMiembro={puede.gestionarMiembros ? eliminarMiembro : null}
+          agregarDeudaManual={puede.gestionarMiembros ? agregarDeudaManual : null}
+          generarDeudasAnio={puede.gestionarMiembros ? generarDeudasAnio : null}
+        />;
       case 'cobradores':
         if (!puede.verTodo) return <AccesoDenegado />;
-        return <Cobradores data={data} agregarCobrador={puede.gestionarCobradores ? agregarCobrador : null} eliminarCobrador={puede.gestionarCobradores ? eliminarCobrador : null} />;
+        return <Cobradores data={data}
+          agregarCobrador={puede.gestionarCobradores ? agregarCobrador : null}
+          eliminarCobrador={puede.gestionarCobradores ? eliminarCobrador : null}
+        />;
       case 'cobranzas':
-        return <Cobranzas
-          data={data}
+        return <Cobranzas data={data}
           registrarCobranza={puede.registrarCobranza ? registrarCobranza : null}
           eliminarCobranza={puede.eliminarCobranza ? eliminarCobranza : null}
           perfilActual={perfil}
@@ -122,57 +109,92 @@ export default function App() {
       case 'reportes':
         if (!puede.verTodo) return <AccesoDenegado />;
         return <Reportes data={data} />;
+      case 'asamblea':
+        return <Asamblea data={data} />;
       case 'usuarios':
         if (!puede.gestionarUsuarios) return <AccesoDenegado />;
         return <Usuarios data={data} />;
-      case 'asamblea':
-        return <Asamblea data={data} />;
       case 'importar':
         if (!puede.gestionarMiembros) return <AccesoDenegado />;
         return <ImportarMiembros data={data} onImportado={() => { cargarTodo(); setTab('miembros'); }} />;
       case 'configuracion':
-
         if (!puede.configurar) return <AccesoDenegado />;
-        return <Configuracion data={data} actualizarCuotas={actualizarCuotas} agregarTemplo={agregarTemplo} eliminarTemplo={eliminarTemplo} />;
+        return <Configuracion data={data}
+          actualizarCuotas={actualizarCuotas}
+          agregarTemplo={agregarTemplo}
+          eliminarTemplo={eliminarTemplo}
+        />;
       default:
         return <Dashboard data={data} />;
     }
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--gray-50)' }}>
-      <Sidebar tab={tab} setTab={setTab} perfil={perfil} onSignOut={signOut} />
-      <main style={{ flex: 1, padding: '32px 36px', overflowY: 'auto', minWidth: 0 }}>
-        {/* Barra superior */}
-        <div style={{
-          display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
-          marginBottom: 24, gap: 10,
-        }}>
+    <div className="app-layout">
+      <Sidebar
+        tab={tab}
+        setTab={setTab}
+        perfil={perfil}
+        onSignOut={signOut}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
+
+      <div className="main-content">
+        {/* Topbar mobile */}
+        <div className="topbar">
           <button
-            onClick={cargarTodo}
+            onClick={() => setSidebarOpen(true)}
             style={{
-              background: 'var(--white)', border: '1px solid var(--gray-200)',
-              borderRadius: 8, padding: '7px 14px', fontSize: 13,
-              color: 'var(--gray-600)', cursor: 'pointer', fontWeight: 500,
+              background: 'none', border: 'none', color: 'var(--white)',
+              fontSize: 22, cursor: 'pointer', padding: '8px',
+              display: 'flex', alignItems: 'center',
             }}
           >
-            ↻ Actualizar
+            ☰
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <img src={logoWhite} alt="" style={{ width: 28, height: 28, objectFit: 'contain' }} />
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--white)' }}>
+              {TAB_LABELS[tab] || 'Gestión'}
+            </span>
+          </div>
+          <button
+            onClick={cargarTodo}
+            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: 18, cursor: 'pointer', padding: '8px' }}
+            title="Actualizar"
+          >
+            ↻
           </button>
         </div>
-        {renderPage()}
-      </main>
+
+        {/* Contenido */}
+        <div className="page-content">
+          {/* Botón actualizar desktop */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }} className="hide-mobile">
+            <button
+              onClick={cargarTodo}
+              style={{
+                background: 'var(--white)', border: '1px solid var(--gray-200)',
+                borderRadius: 8, padding: '7px 14px', fontSize: 13,
+                color: 'var(--gray-600)', cursor: 'pointer', fontWeight: 500,
+              }}
+            >
+              ↻ Actualizar
+            </button>
+          </div>
+          {renderPage()}
+        </div>
+      </div>
     </div>
   );
 }
 
 function AccesoDenegado() {
   return (
-    <div style={{
-      textAlign: 'center', padding: '80px 20px',
-      color: 'var(--gray-400)',
-    }}>
-      <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
-      <h3 style={{ color: 'var(--navy)', marginBottom: 8 }}>Acceso restringido</h3>
+    <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--gray-400)' }}>
+      <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
+      <h3 style={{ color: 'var(--navy)', marginBottom: 6 }}>Acceso restringido</h3>
       <p style={{ fontSize: 14 }}>Tu rol no tiene permisos para ver esta sección.</p>
     </div>
   );
