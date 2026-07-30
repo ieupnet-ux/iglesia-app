@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
+
 export function useSupabase() {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
