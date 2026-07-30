@@ -1,16 +1,31 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
+// Carga todas las filas sin el límite de 1000 de Supabase
+async function cargarPaginado(tabla, opciones = {}) {
+  const { order, orderAsc = false, select = '*' } = opciones;
+  let todas = [];
+  let desde = 0;
+  const BATCH = 1000;
+  while (true) {
+    let q = supabase.from(tabla).select(select).range(desde, desde + BATCH - 1);
+    if (order) q = q.order(order, { ascending: orderAsc });
+    const { data, error } = await q;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    todas = todas.concat(data);
+    if (data.length < BATCH) break;
+    desde += BATCH;
+  }
+  return todas;
+}
 
 export function useSupabase() {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
   const [data, setData]       = useState({
-    templos: [],
-    miembros: [],
-    cobradores: [],
-    cobranzas: [],
-    deudasAnuales: [],
+    templos: [], miembros: [], cobradores: [],
+    cobranzas: [], deudasAnuales: [],
     configuracion: { id: null, cuota_mayor: 50000, cuota_menor: 25000 },
   });
 
@@ -18,25 +33,17 @@ export function useSupabase() {
     setLoading(true);
     setError(null);
     try {
-      const [t, m, co, cz, cfg, da] = await Promise.all([
-        supabase.from('templos').select('*').order('nombre'),
-        supabase.from('miembros').select('*').order('nombre'),
-        supabase.from('cobradores').select('*').order('nombre'),
-        supabase.from('cobranzas').select('*').order('created_at', { ascending: false }),
+      const [templos, miembros, cobradores, cobranzas, deudasAnuales, cfg] = await Promise.all([
+        cargarPaginado('templos',        { order: 'nombre',      orderAsc: true  }),
+        cargarPaginado('miembros',       { order: 'nombre',      orderAsc: true  }),
+        cargarPaginado('cobradores',     { order: 'nombre',      orderAsc: true  }),
+        cargarPaginado('cobranzas',      { order: 'created_at',  orderAsc: false }),
+        cargarPaginado('deudas_anuales', { order: 'anio',        orderAsc: false }),
         supabase.from('configuracion').select('*').limit(1),
-        supabase.from('deudas_anuales').select('*').order('anio', { ascending: false }),
       ]);
-      if (t.error) throw t.error;
-      if (m.error) throw m.error;
-      if (co.error) throw co.error;
-      if (cz.error) throw cz.error;
-      if (da.error) throw da.error;
+      if (cfg.error) throw cfg.error;
       setData({
-        templos:       t.data  || [],
-        miembros:      m.data  || [],
-        cobradores:    co.data || [],
-        cobranzas:     cz.data || [],
-        deudasAnuales: da.data || [],
+        templos, miembros, cobradores, cobranzas, deudasAnuales,
         configuracion: cfg.data?.[0] || { id: null, cuota_mayor: 50000, cuota_menor: 25000 },
       });
     } catch (e) {
@@ -48,7 +55,6 @@ export function useSupabase() {
 
   useEffect(() => { cargarTodo(); }, [cargarTodo]);
 
-  // ── Templos ──────────────────────────────────────────────
   const agregarTemplo = async (nombre) => {
     const { data: row, error } = await supabase.from('templos').insert([{ nombre }]).select().single();
     if (error) throw error;
@@ -62,43 +68,36 @@ export function useSupabase() {
     setData(prev => ({ ...prev, templos: prev.templos.filter(t => t.id !== id) }));
   };
 
-  // ── Configuración ────────────────────────────────────────
   const actualizarCuotas = async (cuota_mayor, cuota_menor) => {
     const cfg = data.configuracion;
     let row;
     if (cfg.id) {
-      const { data: updated, error } = await supabase
-        .from('configuracion')
+      const { data: u, error } = await supabase.from('configuracion')
         .update({ cuota_mayor, cuota_menor, updated_at: new Date().toISOString() })
         .eq('id', cfg.id).select().single();
       if (error) throw error;
-      row = updated;
+      row = u;
     } else {
-      const { data: inserted, error } = await supabase
-        .from('configuracion')
+      const { data: i, error } = await supabase.from('configuracion')
         .insert([{ cuota_mayor, cuota_menor }]).select().single();
       if (error) throw error;
-      row = inserted;
+      row = i;
     }
     setData(prev => ({ ...prev, configuracion: row }));
     return row;
   };
 
-  // ── Miembros ─────────────────────────────────────────────
-  const agregarMiembro = async ({ nombre, categoria, templo_id }) => {
-    const { data: row, error } = await supabase
-      .from('miembros')
-      .insert([{ nombre, categoria, templo_id, deuda: 0 }])
-      .select().single();
+  const agregarMiembro = async (campos) => {
+    const { categoria } = campos;
+    const cuota = categoria === 'mayor' ? data.configuracion.cuota_mayor : data.configuracion.cuota_menor;
+    const { data: row, error } = await supabase.from('miembros')
+      .insert([{ ...campos, deuda: cuota }]).select().single();
     if (error) throw error;
-
-    // Generar deuda del año actual automáticamente
     const anioActual = new Date().getFullYear();
-    const importe = categoria === 'mayor' ? data.configuracion.cuota_mayor : data.configuracion.cuota_menor;
     await supabase.from('deudas_anuales').insert([{
-      miembro_id: row.id, anio: anioActual, importe, saldo: importe, pagado: false
-    }]).select();
-
+      miembro_id: row.id, anio: anioActual,
+      importe: cuota, saldo: cuota, pagado: false,
+    }]);
     await cargarTodo();
     return row;
   };
@@ -113,10 +112,9 @@ export function useSupabase() {
     }));
   };
 
-  // ── Cobradores ───────────────────────────────────────────
   const agregarCobrador = async ({ nombre, templo_id }) => {
-    const { data: row, error } = await supabase
-      .from('cobradores').insert([{ nombre, templo_id }]).select().single();
+    const { data: row, error } = await supabase.from('cobradores')
+      .insert([{ nombre, templo_id }]).select().single();
     if (error) throw error;
     setData(prev => ({ ...prev, cobradores: [...prev.cobradores, row].sort((a,b) => a.nombre.localeCompare(b.nombre)) }));
     return row;
@@ -128,25 +126,16 @@ export function useSupabase() {
     setData(prev => ({ ...prev, cobradores: prev.cobradores.filter(c => c.id !== id) }));
   };
 
-  // ── Cobranzas ────────────────────────────────────────────
   const registrarCobranza = async ({ cobrador_id, miembro_id, deuda_anual_id, anio, monto, numero_recibo, fecha }) => {
-    const { data: cobranza, error: errCz } = await supabase
-      .from('cobranzas')
+    const { data: cz, error } = await supabase.from('cobranzas')
       .insert([{ cobrador_id, miembro_id, deuda_anual_id, anio, monto, numero_recibo, fecha }])
       .select().single();
-    if (errCz) throw errCz;
-
-    // Actualizar saldo de la deuda anual
+    if (error) throw error;
     const deuda = data.deudasAnuales.find(d => d.id === deuda_anual_id);
     if (deuda) {
       const nuevoSaldo = Math.max(0, deuda.saldo - monto);
-      await supabase.from('deudas_anuales').update({
-        saldo: nuevoSaldo,
-        pagado: nuevoSaldo === 0,
-      }).eq('id', deuda_anual_id);
+      await supabase.from('deudas_anuales').update({ saldo: nuevoSaldo, pagado: nuevoSaldo === 0 }).eq('id', deuda_anual_id);
     }
-
-    // Actualizar totales del cobrador
     const cobrador = data.cobradores.find(c => c.id === cobrador_id);
     if (cobrador) {
       await supabase.from('cobradores').update({
@@ -154,39 +143,31 @@ export function useSupabase() {
         cobranzas_registradas: cobrador.cobranzas_registradas + 1,
       }).eq('id', cobrador_id);
     }
-
     await cargarTodo();
-    return cobranza;
+    return cz;
   };
 
   const eliminarCobranza = async (cobranza) => {
     const { error } = await supabase.from('cobranzas').delete().eq('id', cobranza.id);
     if (error) throw error;
-
-    // Revertir saldo de la deuda anual
     if (cobranza.deuda_anual_id) {
       const deuda = data.deudasAnuales.find(d => d.id === cobranza.deuda_anual_id);
       if (deuda) {
-        const saldoRevertido = Math.min(deuda.importe, deuda.saldo + cobranza.monto);
         await supabase.from('deudas_anuales').update({
-          saldo: saldoRevertido,
-          pagado: false,
+          saldo: Math.min(deuda.importe, deuda.saldo + cobranza.monto), pagado: false,
         }).eq('id', cobranza.deuda_anual_id);
       }
     }
-
-    // Revertir totales del cobrador
     const cobrador = data.cobradores.find(c => c.id === cobranza.cobrador_id);
     if (cobrador) {
       await supabase.from('cobradores').update({
         total_cobrado: Math.max(0, cobrador.total_cobrado - cobranza.monto),
         cobranzas_registradas: Math.max(0, cobrador.cobranzas_registradas - 1),
-      }).eq('id', cobranza.cobrador_id);
+      }).eq('id', cobrador_id);
     }
     await cargarTodo();
   };
 
-  // ── Deudas anuales ───────────────────────────────────────
   const generarDeudasAnio = async (anio) => {
     const { error } = await supabase.rpc('generar_deudas_anuales', { p_anio: anio });
     if (error) throw error;
@@ -194,8 +175,7 @@ export function useSupabase() {
   };
 
   const agregarDeudaManual = async ({ miembro_id, anio, importe }) => {
-    const { data: row, error } = await supabase
-      .from('deudas_anuales')
+    const { data: row, error } = await supabase.from('deudas_anuales')
       .insert([{ miembro_id, anio, importe, saldo: importe, pagado: false }])
       .select().single();
     if (error) throw error;
