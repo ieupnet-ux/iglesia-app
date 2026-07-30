@@ -41,7 +41,10 @@ export default function App() {
     agregarCobrador, eliminarCobrador,
     registrarCobranza, eliminarCobranza,
     generarDeudasAnio, agregarDeudaManual,
-  } = useSupabase();
+ } = useSupabase();
+
+// Exponer cargarTodo para recarga desde subcomponentes
+React.useEffect(() => { window.__cargarTodo = cargarTodo; }, [cargarTodo]);
 
   if (loadingAuth) {
     return (
