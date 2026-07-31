@@ -11,6 +11,7 @@ const NAV = [
   { id: 'usuarios',      icon: '◉', label: 'Usuarios',        rol: ['admin'] },
   { id: 'importar',      icon: '⇪', label: 'Importar socios', rol: ['admin'] },
   { id: 'configuracion', icon: '◧', label: 'Configuración',   rol: ['admin'] },
+  { id: 'miperfil',      icon: '👤', label: 'Mi perfil',      rol: ['admin','cobrador','consulta'] },
 ];
 
 const ROL_BADGE = {
