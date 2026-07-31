@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Card, Button, Modal, FormField, Badge, Toast } from '../components/UI';
 
+
 const ROL_CONFIG = {
   admin:    { label: 'Admin',    variant: 'navy',    desc: 'Acceso total al sistema' },
   cobrador: { label: 'Cobrador', variant: 'gold',    desc: 'Solo su templo asignado' },
