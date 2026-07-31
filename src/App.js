@@ -8,6 +8,7 @@ import Miembros        from './pages/Miembros';
 import Cobradores      from './pages/Cobradores';
 import Cobranzas       from './pages/Cobranzas';
 import Reportes        from './pages/Reportes';
+import MiPerfil        from './pages/MiPerfil';
 import Usuarios        from './pages/Usuarios';
 import Configuracion   from './pages/Configuracion';
 import ImportarMiembros from './pages/ImportarMiembros';
@@ -114,6 +115,8 @@ React.useEffect(() => { window.__cargarTodo = cargarTodo; }, [cargarTodo]);
         return <Reportes data={data} />;
       case 'asamblea':
         return <Asamblea data={data} />;
+      case 'miperfil':
+        return <MiPerfil perfil={perfil} onSignOut={signOut} />;
       case 'usuarios':
         if (!puede.gestionarUsuarios) return <AccesoDenegado />;
         return <Usuarios data={data} />;
