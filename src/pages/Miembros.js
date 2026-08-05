@@ -1,9 +1,137 @@
-// v4.0 - edicion de miembro y deudas
-import React, { useState } from 'react';
+// v5.0 - fix re-render en inputs
+import React, { useState, useCallback } from 'react';
 import { Card, Badge, Button, Modal, FormField, Toast } from '../components/UI';
 import { categoriaSegunEdad, calcularEdad } from '../lib/categoriaUtils';
 import { supabase } from '../lib/supabaseClient';
 
+// ── CamposForm FUERA del componente principal ─────────────
+// Esto evita que se recree en cada render y pierda el foco
+const CamposForm = React.memo(({ f, onChange, templos, configuracion, esEdit, onFechaNac }) => {
+  const fmt = (n) => n?.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 });
+  const edad = f.fecha_nacimiento ? calcularEdad(f.fecha_nacimiento) : null;
+
+  return (
+    <div style={{ display: 'grid', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <FormField label="Nombre completo" required>
+          <input placeholder="Apellido y nombre" value={f.nombre}
+            onChange={e => onChange('nombre', e.target.value)} />
+        </FormField>
+        <FormField label="N° Socio">
+          <input placeholder="Ej: 34826" value={f.nro_socio}
+            onChange={e => onChange('nro_socio', e.target.value)} />
+        </FormField>
+      </div>
+
+      <FormField label="Fecha de nacimiento (define categoría automáticamente)">
+        <input type="date" value={f.fecha_nacimiento}
+          onChange={e => onFechaNac(e.target.value)} />
+      </FormField>
+
+      {f.fecha_nacimiento ? (
+        <div style={{
+          borderRadius: 8, padding: '10px 14px', fontSize: 13,
+          background: f.categoria === 'menor' ? 'var(--warning-bg)' : 'var(--success-bg)',
+          color: f.categoria === 'menor' ? 'var(--warning)' : 'var(--success)',
+          display: 'flex', justifyContent: 'space-between',
+        }}>
+          <span>Edad: <strong>{edad} años</strong></span>
+          <span>→ <strong>{f.categoria === 'menor' ? 'Menor (≤17 años)' : 'Mayor (18+ años)'}</strong></span>
+        </div>
+      ) : (
+        <FormField label="Categoría">
+          <select value={f.categoria} onChange={e => onChange('categoria', e.target.value)}>
+            <option value="mayor">Mayor — {fmt(configuracion.cuota_mayor)}</option>
+            <option value="menor">Menor — {fmt(configuracion.cuota_menor)}</option>
+          </select>
+        </FormField>
+      )}
+
+      <FormField label="Templo" required>
+        <select value={f.templo_id} onChange={e => onChange('templo_id', e.target.value)}>
+          <option value="">Seleccionar…</option>
+          {templos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+        </select>
+      </FormField>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <FormField label="Documento (DNI)">
+          <input placeholder="12345678" value={f.documento}
+            onChange={e => onChange('documento', e.target.value)} />
+        </FormField>
+        <FormField label="CUIT/CUIL">
+          <input placeholder="27123456789" value={f.cuit}
+            onChange={e => onChange('cuit', e.target.value)} />
+        </FormField>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <FormField label="Sexo">
+          <select value={f.sexo} onChange={e => onChange('sexo', e.target.value)}>
+            <option value="">—</option>
+            <option value="M">Masculino</option>
+            <option value="F">Femenino</option>
+          </select>
+        </FormField>
+        <FormField label="Estado civil">
+          <select value={f.estado_civil} onChange={e => onChange('estado_civil', e.target.value)}>
+            <option value="">—</option>
+            <option value="Soltero/a">Soltero/a</option>
+            <option value="Casado/a">Casado/a</option>
+            <option value="Divorciado/a">Divorciado/a</option>
+            <option value="Viudo/a">Viudo/a</option>
+            <option value="Concubinato/pareja">Concubinato/pareja</option>
+          </select>
+        </FormField>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <FormField label="Celular">
+          <input placeholder="2994..." value={f.celular}
+            onChange={e => onChange('celular', e.target.value)} />
+        </FormField>
+        <FormField label="Email">
+          <input type="email" placeholder="correo@..." value={f.email}
+            onChange={e => onChange('email', e.target.value)} />
+        </FormField>
+      </div>
+
+      <FormField label="Domicilio">
+        <input placeholder="Calle y número" value={f.domicilio}
+          onChange={e => onChange('domicilio', e.target.value)} />
+      </FormField>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <FormField label="Ciudad">
+          <input placeholder="Cipolletti" value={f.ciudad}
+            onChange={e => onChange('ciudad', e.target.value)} />
+        </FormField>
+        <FormField label="Provincia">
+          <input placeholder="Río Negro" value={f.provincia}
+            onChange={e => onChange('provincia', e.target.value)} />
+        </FormField>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <FormField label="Ocupación">
+          <input placeholder="Ej: Docente" value={f.ocupacion}
+            onChange={e => onChange('ocupacion', e.target.value)} />
+        </FormField>
+        <FormField label="Nacionalidad">
+          <input placeholder="Argentina" value={f.nacionalidad}
+            onChange={e => onChange('nacionalidad', e.target.value)} />
+        </FormField>
+      </div>
+
+      <FormField label="Observación">
+        <input placeholder="Notas adicionales…" value={f.observacion}
+          onChange={e => onChange('observacion', e.target.value)} />
+      </FormField>
+    </div>
+  );
+});
+
+// ── Componente principal ──────────────────────────────────
 export default function Miembros({ data, agregarMiembro, eliminarMiembro, agregarDeudaManual, generarDeudasAnio }) {
   const { miembros, templos, configuracion, deudasAnuales } = data;
 
@@ -18,14 +146,13 @@ export default function Miembros({ data, agregarMiembro, eliminarMiembro, agrega
   const [deudaEditando, setDeudaEditando]       = useState(null);
   const [miembroExpandido, setMiembroExpandido] = useState(null);
 
-  const [filtroTemplo, setFiltro]   = useState('');
-  const [filtroCat, setFiltroCat]   = useState('');
-  const [busqueda, setBusqueda]     = useState('');
-  const [toast, setToast]           = useState(null);
-  const [saving, setSaving]         = useState(false);
+  const [filtroTemplo, setFiltro]     = useState('');
+  const [filtroCat, setFiltroCat]     = useState('');
+  const [busqueda, setBusqueda]       = useState('');
+  const [toast, setToast]             = useState(null);
+  const [saving, setSaving]           = useState(false);
   const [anioGenerar, setAnioGenerar] = useState(new Date().getFullYear());
 
-  // Form nuevo miembro
   const formVacio = {
     nombre: '', templo_id: '', fecha_nacimiento: '',
     categoria: 'mayor', documento: '', cuit: '',
@@ -34,6 +161,7 @@ export default function Miembros({ data, agregarMiembro, eliminarMiembro, agrega
     sexo: '', estado_civil: '', nacionalidad: 'Argentina',
     observacion: '',
   };
+
   const [form, setForm]           = useState(formVacio);
   const [formEdit, setFormEdit]   = useState(formVacio);
   const [formDeuda, setFormDeuda] = useState({ anio: new Date().getFullYear(), importe: '' });
@@ -46,11 +174,24 @@ export default function Miembros({ data, agregarMiembro, eliminarMiembro, agrega
 
   const fmt = (n) => n?.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 });
 
-  const handleFechaNac = (fecha, esEdit = false) => {
+  // ── Handlers con useCallback para evitar re-renders ──────
+  const handleChangeForm = useCallback((campo, valor) => {
+    setForm(f => ({ ...f, [campo]: valor }));
+  }, []);
+
+  const handleChangeFormEdit = useCallback((campo, valor) => {
+    setFormEdit(f => ({ ...f, [campo]: valor }));
+  }, []);
+
+  const handleFechaNacForm = useCallback((fecha) => {
     const cat = categoriaSegunEdad(fecha);
-    if (esEdit) setFormEdit(f => ({ ...f, fecha_nacimiento: fecha, categoria: cat }));
-    else        setForm(f =>     ({ ...f, fecha_nacimiento: fecha, categoria: cat }));
-  };
+    setForm(f => ({ ...f, fecha_nacimiento: fecha, categoria: cat }));
+  }, []);
+
+  const handleFechaNacEdit = useCallback((fecha) => {
+    const cat = categoriaSegunEdad(fecha);
+    setFormEdit(f => ({ ...f, fecha_nacimiento: fecha, categoria: cat }));
+  }, []);
 
   // ── Guardar nuevo miembro ─────────────────────────────────
   const handleGuardar = async () => {
@@ -86,7 +227,7 @@ export default function Miembros({ data, agregarMiembro, eliminarMiembro, agrega
     }
   };
 
-  // ── Abrir modal editar miembro ────────────────────────────
+  // ── Abrir editar miembro ──────────────────────────────────
   const abrirEditar = (m) => {
     setMiembroEditando(m);
     setFormEdit({
@@ -111,33 +252,30 @@ export default function Miembros({ data, agregarMiembro, eliminarMiembro, agrega
     setModalEditar(true);
   };
 
-  // ── Guardar edición de miembro ────────────────────────────
+  // ── Guardar edición ───────────────────────────────────────
   const handleGuardarEdicion = async () => {
     if (!formEdit.nombre.trim() || !formEdit.templo_id) return;
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('miembros')
-        .update({
-          nombre:           formEdit.nombre.trim(),
-          categoria:        formEdit.categoria,
-          templo_id:        parseInt(formEdit.templo_id),
-          fecha_nacimiento: formEdit.fecha_nacimiento || null,
-          documento:        formEdit.documento || null,
-          cuit:             formEdit.cuit || null,
-          celular:          formEdit.celular || null,
-          email:            formEdit.email || null,
-          domicilio:        formEdit.domicilio || null,
-          ciudad:           formEdit.ciudad || null,
-          provincia:        formEdit.provincia || null,
-          nro_socio:        formEdit.nro_socio || null,
-          ocupacion:        formEdit.ocupacion || null,
-          sexo:             formEdit.sexo || null,
-          estado_civil:     formEdit.estado_civil || null,
-          nacionalidad:     formEdit.nacionalidad || 'Argentina',
-          observacion:      formEdit.observacion || null,
-        })
-        .eq('id', miembroEditando.id);
+      const { error } = await supabase.from('miembros').update({
+        nombre:           formEdit.nombre.trim(),
+        categoria:        formEdit.categoria,
+        templo_id:        parseInt(formEdit.templo_id),
+        fecha_nacimiento: formEdit.fecha_nacimiento || null,
+        documento:        formEdit.documento || null,
+        cuit:             formEdit.cuit || null,
+        celular:          formEdit.celular || null,
+        email:            formEdit.email || null,
+        domicilio:        formEdit.domicilio || null,
+        ciudad:           formEdit.ciudad || null,
+        provincia:        formEdit.provincia || null,
+        nro_socio:        formEdit.nro_socio || null,
+        ocupacion:        formEdit.ocupacion || null,
+        sexo:             formEdit.sexo || null,
+        estado_civil:     formEdit.estado_civil || null,
+        nacionalidad:     formEdit.nacionalidad || 'Argentina',
+        observacion:      formEdit.observacion || null,
+      }).eq('id', miembroEditando.id);
       if (error) throw error;
       setModalEditar(false);
       showToast('Miembro actualizado correctamente');
@@ -151,7 +289,7 @@ export default function Miembros({ data, agregarMiembro, eliminarMiembro, agrega
 
   // ── Eliminar miembro ──────────────────────────────────────
   const handleEliminar = async (m) => {
-    if (!window.confirm(`¿Eliminar a ${m.nombre}? Se eliminarán también todas sus deudas.`)) return;
+    if (!window.confirm(`¿Eliminar a ${m.nombre}?`)) return;
     try {
       await eliminarMiembro(m.id);
       showToast('Miembro eliminado');
@@ -160,7 +298,7 @@ export default function Miembros({ data, agregarMiembro, eliminarMiembro, agrega
     }
   };
 
-  // ── Agregar deuda manual ──────────────────────────────────
+  // ── Agregar deuda ─────────────────────────────────────────
   const handleAgregarDeuda = async () => {
     if (!miembroDeuda || !formDeuda.anio || !formDeuda.importe) return;
     setSaving(true);
@@ -235,147 +373,14 @@ export default function Miembros({ data, agregarMiembro, eliminarMiembro, agrega
   const filtrados = miembros
     .filter(m => !filtroTemplo || m.templo_id === parseInt(filtroTemplo))
     .filter(m => !filtroCat   || m.categoria === filtroCat)
-    .filter(m => !busqueda    || m.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
-                                 m.documento?.includes(busqueda) ||
-                                 m.nro_socio?.toString().includes(busqueda));
+    .filter(m => !busqueda    ||
+      m.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
+      m.documento?.includes(busqueda) ||
+      m.nro_socio?.toString().includes(busqueda));
 
   const deudasMiembro     = (id) => deudasAnuales.filter(d => d.miembro_id === id).sort((a,b) => a.anio - b.anio);
   const deudaTotalMiembro = (id) => deudasAnuales.filter(d => d.miembro_id === id && !d.pagado).reduce((s,d) => s + d.saldo, 0);
   const aniosPendientes   = (id) => deudasAnuales.filter(d => d.miembro_id === id && !d.pagado).map(d => d.anio).sort();
-
-  // ── Formulario compartido (nuevo y editar) ────────────────
-  const CamposForm = ({ f, setF, esEdit }) => {
-    const edad = f.fecha_nacimiento ? calcularEdad(f.fecha_nacimiento) : null;
-    return (
-      <div style={{ display: 'grid', gap: 14 }}>
-        {/* Fila 1: nombre y N° socio */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <FormField label="Nombre completo" required>
-            <input placeholder="Apellido y nombre" value={f.nombre}
-              onChange={e => setF(p => ({ ...p, nombre: e.target.value }))} />
-          </FormField>
-          <FormField label="N° Socio">
-            <input placeholder="Ej: 34826" value={f.nro_socio}
-              onChange={e => setF(p => ({ ...p, nro_socio: e.target.value }))} />
-          </FormField>
-        </div>
-
-        {/* Fila 2: fecha de nacimiento → categoría automática */}
-        <FormField label="Fecha de nacimiento (define categoría automáticamente)">
-          <input type="date" value={f.fecha_nacimiento}
-            onChange={e => handleFechaNac(e.target.value, esEdit)} />
-        </FormField>
-
-        {f.fecha_nacimiento ? (
-          <div style={{
-            borderRadius: 8, padding: '10px 14px', fontSize: 13,
-            background: f.categoria === 'menor' ? 'var(--warning-bg)' : 'var(--success-bg)',
-            color: f.categoria === 'menor' ? 'var(--warning)' : 'var(--success)',
-            display: 'flex', justifyContent: 'space-between',
-          }}>
-            <span>Edad: <strong>{edad} años</strong></span>
-            <span>→ <strong>{f.categoria === 'menor' ? 'Menor (≤17 años)' : 'Mayor (18+ años)'}</strong></span>
-          </div>
-        ) : (
-          <FormField label="Categoría">
-            <select value={f.categoria} onChange={e => setF(p => ({ ...p, categoria: e.target.value }))}>
-              <option value="mayor">Mayor — {fmt(configuracion.cuota_mayor)}</option>
-              <option value="menor">Menor — {fmt(configuracion.cuota_menor)}</option>
-            </select>
-          </FormField>
-        )}
-
-        {/* Fila 3: templo */}
-        <FormField label="Templo" required>
-          <select value={f.templo_id} onChange={e => setF(p => ({ ...p, templo_id: e.target.value }))}>
-            <option value="">Seleccionar…</option>
-            {templos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-          </select>
-        </FormField>
-
-        {/* Fila 4: doc y cuit */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <FormField label="Documento (DNI)">
-            <input placeholder="12345678" value={f.documento}
-              onChange={e => setF(p => ({ ...p, documento: e.target.value }))} />
-          </FormField>
-          <FormField label="CUIT/CUIL">
-            <input placeholder="27123456789" value={f.cuit}
-              onChange={e => setF(p => ({ ...p, cuit: e.target.value }))} />
-          </FormField>
-        </div>
-
-        {/* Fila 5: sexo y estado civil */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <FormField label="Sexo">
-            <select value={f.sexo} onChange={e => setF(p => ({ ...p, sexo: e.target.value }))}>
-              <option value="">—</option>
-              <option value="M">Masculino</option>
-              <option value="F">Femenino</option>
-            </select>
-          </FormField>
-          <FormField label="Estado civil">
-            <select value={f.estado_civil} onChange={e => setF(p => ({ ...p, estado_civil: e.target.value }))}>
-              <option value="">—</option>
-              <option value="Soltero/a">Soltero/a</option>
-              <option value="Casado/a">Casado/a</option>
-              <option value="Divorciado/a">Divorciado/a</option>
-              <option value="Viudo/a">Viudo/a</option>
-              <option value="Concubinato/pareja">Concubinato/pareja</option>
-            </select>
-          </FormField>
-        </div>
-
-        {/* Fila 6: celular y email */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <FormField label="Celular">
-            <input placeholder="2994..." value={f.celular}
-              onChange={e => setF(p => ({ ...p, celular: e.target.value }))} />
-          </FormField>
-          <FormField label="Email">
-            <input type="email" placeholder="correo@..." value={f.email}
-              onChange={e => setF(p => ({ ...p, email: e.target.value }))} />
-          </FormField>
-        </div>
-
-        {/* Fila 7: domicilio */}
-        <FormField label="Domicilio">
-          <input placeholder="Calle y número" value={f.domicilio}
-            onChange={e => setF(p => ({ ...p, domicilio: e.target.value }))} />
-        </FormField>
-
-        {/* Fila 8: ciudad y provincia */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <FormField label="Ciudad">
-            <input placeholder="Cipolletti" value={f.ciudad}
-              onChange={e => setF(p => ({ ...p, ciudad: e.target.value }))} />
-          </FormField>
-          <FormField label="Provincia">
-            <input placeholder="Río Negro" value={f.provincia}
-              onChange={e => setF(p => ({ ...p, provincia: e.target.value }))} />
-          </FormField>
-        </div>
-
-        {/* Fila 9: ocupación y nacionalidad */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <FormField label="Ocupación">
-            <input placeholder="Ej: Docente" value={f.ocupacion}
-              onChange={e => setF(p => ({ ...p, ocupacion: e.target.value }))} />
-          </FormField>
-          <FormField label="Nacionalidad">
-            <input placeholder="Argentina" value={f.nacionalidad}
-              onChange={e => setF(p => ({ ...p, nacionalidad: e.target.value }))} />
-          </FormField>
-        </div>
-
-        {/* Observación */}
-        <FormField label="Observación">
-          <input placeholder="Notas adicionales…" value={f.observacion}
-            onChange={e => setF(p => ({ ...p, observacion: e.target.value }))} />
-        </FormField>
-      </div>
-    );
-  };
 
   return (
     <div>
@@ -436,7 +441,6 @@ export default function Miembros({ data, agregarMiembro, eliminarMiembro, agrega
                 const anios   = aniosPendientes(m.id);
                 const edad    = m.fecha_nacimiento ? calcularEdad(m.fecha_nacimiento) : null;
                 const expandido = miembroExpandido === m.id;
-
                 return (
                   <React.Fragment key={m.id}>
                     <tr style={{ borderBottom: expandido ? 'none' : '1px solid var(--gray-100)', background: expandido ? '#F0F2F8' : 'transparent' }}>
@@ -462,15 +466,10 @@ export default function Miembros({ data, agregarMiembro, eliminarMiembro, agrega
                       </td>
                       <td style={{ padding: '12px 14px' }}>
                         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                          {/* Editar miembro */}
-                          <Button size="sm" variant="primary" onClick={() => abrirEditar(m)}>
-                            ✎ Editar
-                          </Button>
-                          {/* Ver/ocultar deudas */}
+                          <Button size="sm" variant="primary" onClick={() => abrirEditar(m)}>✎ Editar</Button>
                           <Button size="sm" variant="ghost" onClick={() => setMiembroExpandido(expandido ? null : m.id)}>
                             {expandido ? '▲' : '▼ Deudas'}
                           </Button>
-                          {/* Agregar deuda */}
                           {agregarDeudaManual && (
                             <Button size="sm" variant="ghost" onClick={() => {
                               setMiembroDeuda(m);
@@ -478,7 +477,6 @@ export default function Miembros({ data, agregarMiembro, eliminarMiembro, agrega
                               setModalDeuda(true);
                             }}>+ Deuda</Button>
                           )}
-                          {/* Eliminar miembro */}
                           {eliminarMiembro && (
                             <Button size="sm" variant="ghost" onClick={() => handleEliminar(m)}
                               style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}>✕</Button>
@@ -487,7 +485,6 @@ export default function Miembros({ data, agregarMiembro, eliminarMiembro, agrega
                       </td>
                     </tr>
 
-                    {/* Fila expandida de deudas */}
                     {expandido && (
                       <tr>
                         <td colSpan={8} style={{ padding: '0 14px 16px', background: '#F0F2F8', borderBottom: '1px solid var(--gray-200)' }}>
@@ -544,9 +541,16 @@ export default function Miembros({ data, agregarMiembro, eliminarMiembro, agrega
         </div>
       </Card>
 
-      {/* ── Modal NUEVO miembro ─────────────────────────────── */}
+      {/* Modal NUEVO miembro */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Agregar nuevo miembro" width={560}>
-        <CamposForm f={form} setF={setForm} esEdit={false} />
+        <CamposForm
+          f={form}
+          onChange={handleChangeForm}
+          onFechaNac={handleFechaNacForm}
+          templos={templos}
+          configuracion={configuracion}
+          esEdit={false}
+        />
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
           <Button variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
           <Button onClick={handleGuardar} disabled={saving || !form.nombre.trim() || !form.templo_id}>
@@ -555,9 +559,16 @@ export default function Miembros({ data, agregarMiembro, eliminarMiembro, agrega
         </div>
       </Modal>
 
-      {/* ── Modal EDITAR miembro ────────────────────────────── */}
+      {/* Modal EDITAR miembro */}
       <Modal open={modalEditar} onClose={() => setModalEditar(false)} title={`Editar — ${miembroEditando?.nombre}`} width={560}>
-        <CamposForm f={formEdit} setF={setFormEdit} esEdit={true} />
+        <CamposForm
+          f={formEdit}
+          onChange={handleChangeFormEdit}
+          onFechaNac={handleFechaNacEdit}
+          templos={templos}
+          configuracion={configuracion}
+          esEdit={true}
+        />
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
           <Button variant="ghost" onClick={() => setModalEditar(false)}>Cancelar</Button>
           <Button variant="gold" onClick={handleGuardarEdicion} disabled={saving || !formEdit.nombre.trim() || !formEdit.templo_id}>
@@ -566,7 +577,7 @@ export default function Miembros({ data, agregarMiembro, eliminarMiembro, agrega
         </div>
       </Modal>
 
-      {/* ── Modal AGREGAR deuda ─────────────────────────────── */}
+      {/* Modal AGREGAR deuda */}
       <Modal open={modalDeuda} onClose={() => setModalDeuda(false)} title={`Agregar deuda — ${miembroDeuda?.nombre}`}>
         <div style={{ display: 'grid', gap: 16 }}>
           <div style={{ background: 'var(--gray-50)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: 'var(--gray-600)' }}>
@@ -591,7 +602,7 @@ export default function Miembros({ data, agregarMiembro, eliminarMiembro, agrega
         </div>
       </Modal>
 
-      {/* ── Modal EDITAR deuda ──────────────────────────────── */}
+      {/* Modal EDITAR deuda */}
       <Modal open={modalEditDeuda} onClose={() => setModalEditDeuda(false)} title={`Editar deuda ${deudaEditando?.anio}`}>
         <div style={{ display: 'grid', gap: 16 }}>
           <div style={{ background: 'var(--warning-bg)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: 'var(--warning)' }}>
@@ -628,8 +639,7 @@ export default function Miembros({ data, agregarMiembro, eliminarMiembro, agrega
         </div>
       </Modal>
 
-
-      {/* ── Modal GENERAR deudas ────────────────────────────── */}
+      {/* Modal GENERAR deudas */}
       <Modal open={modalGenerar} onClose={() => setModalGenerar(false)} title="Generar deudas anuales">
         <div style={{ display: 'grid', gap: 16 }}>
           <div style={{ background: 'var(--warning-bg)', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: 'var(--warning)', lineHeight: 1.6 }}>
