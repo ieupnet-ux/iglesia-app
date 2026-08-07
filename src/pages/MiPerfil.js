@@ -123,7 +123,7 @@ export default function MiPerfil({ perfil, onSignOut }) {
       </div>
 
       {/* Tab: cambiar contraseña */}
-      {tab === 'password' && (
+      {tab === 'password' && !esConsulta && (
         <Card>
           <CardHeader title="Nueva contraseña" subtitle="Mínimo 6 caracteres" />
           <div style={{ padding: '20px 24px', display: 'grid', gap: 16 }}>
