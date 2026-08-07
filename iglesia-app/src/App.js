@@ -24,7 +24,15 @@ export default function App() {
     agregarCobrador, eliminarCobrador,
     registrarCobranza, eliminarCobranza,
   } = useSupabase();
-
+const miCobradorId = React.useMemo(() => {
+  if (!perfil?.id || perfil?.rol === 'admin' || perfil?.rol === 'consulta') return null;
+  const cob = data.cobradores.find(c => c.perfil_id === perfil.id);
+  if (cob) return cob.id;
+  const cobNombre = data.cobradores.find(c =>
+    c.nombre?.toLowerCase().trim() === perfil.nombre?.toLowerCase().trim()
+  );
+  return cobNombre?.id || null;
+}, [perfil, data.cobradores]);
   // --- Pantalla de carga inicial ---
   if (loadingAuth) {
     return (
@@ -111,11 +119,11 @@ export default function App() {
         if (!puede.verTodo) return <AccesoDenegado />;
         return <Cobradores data={data} agregarCobrador={puede.gestionarCobradores ? agregarCobrador : null} eliminarCobrador={puede.gestionarCobradores ? eliminarCobrador : null} />;
       case 'cobranzas':
-        return <Cobranzas
-          data={data}
-          registrarCobranza={puede.registrarCobranza ? registrarCobranza : null}
-          eliminarCobranza={puede.eliminarCobranza ? eliminarCobranza : null}
-          perfilActual={perfil}
+      return <Cobranzas data={data}
+  registrarCobranza={puede.registrarCobranza ? registrarCobranza : null}
+  eliminarCobranza={puede.eliminarCobranza ? eliminarCobranza : null}
+  perfilActual={perfil}
+  miCobradorIdProp={miCobradorId}
         />;
       case 'reportes':
         if (!puede.verTodo) return <AccesoDenegado />;
