@@ -1,4 +1,4 @@
-// v5.0 - cobrador puede editar sus cobranzas
+// v5.0 - cobrador puede editar sus  cobranzas
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Modal, FormField, Badge, Toast } from '../components/UI';
 import { supabase } from '../lib/supabaseClient';
