@@ -1,4 +1,4 @@
-// v5.0 - cobrador puede editar sus  cobranzas
+// v5.0 - cobrador puede editar sus cobranzas
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Modal, FormField, Badge, Toast } from '../components/UI';
 import { supabase } from '../lib/supabaseClient';
@@ -14,9 +14,19 @@ export default function Cobranzas({ data, registrarCobranza, eliminarCobranza, p
   const [filtroAnio, setFiltroAnio]   = useState('');
   const [busqueda, setBusqueda]       = useState('');
 
-  const [miCobradorId, setMiCobradorId] = useState(null);
-  const esAdmin   = perfilActual?.rol === 'admin';
+  const esAdmin    = perfilActual?.rol === 'admin';
   const esConsulta = perfilActual?.rol === 'consulta';
+
+  // Calcular miCobradorId de forma sincrónica desde los datos ya cargados
+  const miCobradorId = React.useMemo(() => {
+    if (!perfilActual?.id || esAdmin || esConsulta) return null;
+    // 1. Buscar por perfil_id vinculado
+    const cobVinculado = cobradores.find(c => c.perfil_id === perfilActual.id);
+    if (cobVinculado) return cobVinculado.id;
+    // 2. Fallback por templo
+    const cobPorTemplo = cobradores.find(c => c.templo_id === perfilActual.templo_id);
+    return cobPorTemplo?.id || null;
+  }, [perfilActual, cobradores, esAdmin, esConsulta]);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -29,26 +39,12 @@ export default function Cobranzas({ data, registrarCobranza, eliminarCobranza, p
     numero_recibo: '', fecha: '', monto: '',
   });
 
-  // ── Buscar cobrador vinculado ─────────────────────────────
+  // Sincronizar cobrador_id del form cuando miCobradorId esté disponible
   useEffect(() => {
-    const buscarMiCobrador = async () => {
-      if (!perfilActual?.id) return;
-      const { data: cobVinculado } = await supabase
-        .from('cobradores').select('id').eq('perfil_id', perfilActual.id).limit(1);
-      if (cobVinculado?.length > 0) {
-        const id = cobVinculado[0].id;
-        setMiCobradorId(id);
-        setForm(f => ({ ...f, cobrador_id: id }));
-      } else if (!esAdmin && !esConsulta) {
-        const cobPorTemplo = cobradores.find(c => c.templo_id === perfilActual.templo_id);
-        if (cobPorTemplo) {
-          setMiCobradorId(cobPorTemplo.id);
-          setForm(f => ({ ...f, cobrador_id: cobPorTemplo.id }));
-        }
-      }
-    };
-    buscarMiCobrador();
-  }, [perfilActual, cobradores, esAdmin, esConsulta]);
+    if (miCobradorId) {
+      setForm(f => ({ ...f, cobrador_id: miCobradorId }));
+    }
+  }, [miCobradorId]);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
