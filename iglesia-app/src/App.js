@@ -26,11 +26,17 @@ export default function App() {
   } = useSupabase();
 const miCobradorId = React.useMemo(() => {
   if (!perfil?.id || perfil?.rol === 'admin' || perfil?.rol === 'consulta') return null;
+  console.log('BUSCANDO COBRADOR:');
+  console.log('perfil.id:', perfil.id);
+  console.log('perfil.nombre:', JSON.stringify(perfil.nombre));
+  console.log('cobradores completos:', JSON.stringify(data.cobradores.map(c => ({ id: c.id, nombre: c.nombre, perfil_id: c.perfil_id }))));
   const cob = data.cobradores.find(c => c.perfil_id === perfil.id);
+  console.log('encontrado por perfil_id:', cob);
   if (cob) return cob.id;
   const cobNombre = data.cobradores.find(c =>
     c.nombre?.toLowerCase().trim() === perfil.nombre?.toLowerCase().trim()
   );
+  console.log('encontrado por nombre:', cobNombre);
   return cobNombre?.id || null;
 }, [perfil, data.cobradores]);
   // --- Pantalla de carga inicial ---
