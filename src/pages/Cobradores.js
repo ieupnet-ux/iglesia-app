@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Button, Modal, FormField, Toast } from '../components/UI';
+import { Card, CardHeader, Button, Modal, FormField, Toast, MetricCard } from '../components/UI';
 
 export default function Cobradores({ data, agregarCobrador, eliminarCobrador }) {
   const { cobradores, templos, cobranzas } = data;
