@@ -1,5 +1,6 @@
+// v2.0 - totales calculados en vivo desde cobranzas
 import React, { useState } from 'react';
-import { Card, CardHeader, Button, Modal, FormField, Toast, MetricCard } from '../components/UI';
+import { Card, Button, Modal, FormField, Toast } from '../components/UI';
 
 export default function Cobradores({ data, agregarCobrador, eliminarCobrador }) {
   const { cobradores, templos, cobranzas } = data;
@@ -38,7 +39,7 @@ export default function Cobradores({ data, agregarCobrador, eliminarCobrador }) 
     }
   };
 
-  const fmt = (n) => n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 });
+  const fmt = (n) => (n || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 });
 
   return (
     <div>
@@ -49,7 +50,7 @@ export default function Cobradores({ data, agregarCobrador, eliminarCobrador }) 
           <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--navy)' }}>Cobradores</h2>
           <div style={{ fontSize: 13, color: 'var(--gray-400)', marginTop: 2 }}>{cobradores.length} registrados</div>
         </div>
-        <Button onClick={() => setModalOpen(true)}>+ Nuevo cobrador</Button>
+        {agregarCobrador && <Button onClick={() => setModalOpen(true)}>+ Nuevo cobrador</Button>}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
@@ -58,28 +59,24 @@ export default function Cobradores({ data, agregarCobrador, eliminarCobrador }) 
             No hay cobradores registrados aún
           </div>
         ) : cobradores.map(c => {
-          const templo      = templos.find(t => t.id === c.templo_id);
+          const templo = templos.find(t => t.id === c.templo_id);
+
+          // ── Calcular totales EN VIVO desde las cobranzas ──
           const czCobrador  = cobranzas.filter(cz => cz.cobrador_id === c.id);
-          const ultimo      = czCobrador[0];
+          const totalCobrado = czCobrador.reduce((s, cz) => s + (cz.monto || 0), 0);
+          const cantidad     = czCobrador.length;
+
+          // Último recibo (por fecha más reciente)
+          const ultimo = [...czCobrador]
+            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha) || b.id - a.id)[0];
 
           return (
             <Card key={c.id}>
-              {/* Header card cobrador */}
-              <div style={{
-                background: 'var(--navy)',
-                padding: '20px 24px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 14,
-              }}>
+              <div style={{ background: 'var(--navy)', padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div style={{
-                  width: 44, height: 44, borderRadius: '50%',
-                  background: 'var(--gold)',
+                  width: 44, height: 44, borderRadius: '50%', background: 'var(--gold)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: 'Georgia, serif',
-                  fontSize: 18, fontWeight: 700,
-                  color: 'var(--navy)',
-                  flexShrink: 0,
+                  fontFamily: 'Georgia, serif', fontSize: 18, fontWeight: 700, color: 'var(--navy)', flexShrink: 0,
                 }}>
                   {c.nombre.charAt(0).toUpperCase()}
                 </div>
@@ -88,21 +85,20 @@ export default function Cobradores({ data, agregarCobrador, eliminarCobrador }) 
                     {c.nombre}
                   </div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
-                    {templo?.nombre || '—'}
+                    {templo?.nombre || 'Todos los templos'}
                   </div>
                 </div>
               </div>
 
-              {/* Cuerpo */}
               <div style={{ padding: '16px 24px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
                   <div style={{ background: 'var(--gray-50)', borderRadius: 8, padding: '12px 14px' }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-400)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Total cobrado</div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--success)', marginTop: 4 }}>{fmt(c.total_cobrado)}</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--success)', marginTop: 4 }}>{fmt(totalCobrado)}</div>
                   </div>
                   <div style={{ background: 'var(--gray-50)', borderRadius: 8, padding: '12px 14px' }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-400)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Cobranzas</div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--navy)', marginTop: 4 }}>{c.cobranzas_registradas}</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--navy)', marginTop: 4 }}>{cantidad}</div>
                   </div>
                 </div>
 
@@ -112,9 +108,11 @@ export default function Cobradores({ data, agregarCobrador, eliminarCobrador }) 
                   </div>
                 )}
 
-                <Button size="sm" variant="ghost" onClick={() => handleEliminar(c)} style={{ width: '100%' }}>
-                  Eliminar cobrador
-                </Button>
+                {eliminarCobrador && (
+                  <Button size="sm" variant="ghost" onClick={() => handleEliminar(c)} style={{ width: '100%' }}>
+                    Eliminar cobrador
+                  </Button>
+                )}
               </div>
             </Card>
           );
@@ -124,11 +122,8 @@ export default function Cobradores({ data, agregarCobrador, eliminarCobrador }) 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Agregar cobrador">
         <div style={{ display: 'grid', gap: 16 }}>
           <FormField label="Nombre del cobrador" required>
-            <input
-              placeholder="Nombre y apellido"
-              value={form.nombre}
-              onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
-            />
+            <input placeholder="Nombre y apellido" value={form.nombre}
+              onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
           </FormField>
           <FormField label="Templo asignado" required>
             <select value={form.templo_id} onChange={e => setForm(f => ({ ...f, templo_id: e.target.value }))}>
