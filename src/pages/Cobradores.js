@@ -1,9 +1,9 @@
-// v2.0 - totales calculados en vivo desde cobranzas
+// v3.0 - porcentaje de recaudacion por cobrador/templo
 import React, { useState } from 'react';
 import { Card, Button, Modal, FormField, Toast } from '../components/UI';
 
 export default function Cobradores({ data, agregarCobrador, eliminarCobrador }) {
-  const { cobradores, templos, cobranzas } = data;
+  const { cobradores, templos, cobranzas, miembros, deudasAnuales } = data;
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm]           = useState({ nombre: '', templo_id: '' });
   const [toast, setToast]         = useState(null);
@@ -41,6 +41,25 @@ export default function Cobradores({ data, agregarCobrador, eliminarCobrador }) 
 
   const fmt = (n) => (n || 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 });
 
+  // ── Cálculo de recaudación por templo ─────────────────────
+  // Para un templo: total original de deudas vs saldo pendiente
+  const recaudacionTemplo = (temploId) => {
+    if (!temploId) {
+      // Cobrador sin templo (cobra en todos) — usar todo el sistema
+      const totalOriginal = deudasAnuales.reduce((s, d) => s + (d.importe || 0), 0);
+      const totalPendiente = deudasAnuales.reduce((s, d) => s + (d.saldo || 0), 0);
+      const cobrado = totalOriginal - totalPendiente;
+      return { totalOriginal, totalPendiente, cobrado };
+    }
+    // Miembros de ese templo
+    const idsMiembros = miembros.filter(m => m.templo_id === temploId).map(m => m.id);
+    const deudasTemplo = deudasAnuales.filter(d => idsMiembros.includes(d.miembro_id));
+    const totalOriginal  = deudasTemplo.reduce((s, d) => s + (d.importe || 0), 0);
+    const totalPendiente = deudasTemplo.reduce((s, d) => s + (d.saldo || 0), 0);
+    const cobrado = totalOriginal - totalPendiente;
+    return { totalOriginal, totalPendiente, cobrado };
+  };
+
   return (
     <div>
       {toast && <Toast msg={toast.msg} type={toast.type} />}
@@ -53,7 +72,7 @@ export default function Cobradores({ data, agregarCobrador, eliminarCobrador }) 
         {agregarCobrador && <Button onClick={() => setModalOpen(true)}>+ Nuevo cobrador</Button>}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
         {cobradores.length === 0 ? (
           <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '48px 0', color: 'var(--gray-400)' }}>
             No hay cobradores registrados aún
@@ -61,14 +80,23 @@ export default function Cobradores({ data, agregarCobrador, eliminarCobrador }) 
         ) : cobradores.map(c => {
           const templo = templos.find(t => t.id === c.templo_id);
 
-          // ── Calcular totales EN VIVO desde las cobranzas ──
-          const czCobrador  = cobranzas.filter(cz => cz.cobrador_id === c.id);
+          // Totales del cobrador (lo que él registró)
+          const czCobrador   = cobranzas.filter(cz => cz.cobrador_id === c.id);
           const totalCobrado = czCobrador.reduce((s, cz) => s + (cz.monto || 0), 0);
           const cantidad     = czCobrador.length;
+          const ultimo = [...czCobrador].sort((a, b) => new Date(b.fecha) - new Date(a.fecha) || b.id - a.id)[0];
 
-          // Último recibo (por fecha más reciente)
-          const ultimo = [...czCobrador]
-            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha) || b.id - a.id)[0];
+          // Recaudación del templo
+          const rec = recaudacionTemplo(c.templo_id);
+          const porcentajeCobrado = rec.totalOriginal > 0
+            ? Math.round((rec.cobrado / rec.totalOriginal) * 100)
+            : 0;
+          const porcentajeFalta = 100 - porcentajeCobrado;
+
+          // Color de la barra según el porcentaje
+          const colorBarra = porcentajeCobrado >= 75 ? 'var(--success)'
+            : porcentajeCobrado >= 40 ? 'var(--gold)'
+            : 'var(--danger)';
 
           return (
             <Card key={c.id}>
@@ -99,6 +127,31 @@ export default function Cobradores({ data, agregarCobrador, eliminarCobrador }) 
                   <div style={{ background: 'var(--gray-50)', borderRadius: 8, padding: '12px 14px' }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-400)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Cobranzas</div>
                     <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--navy)', marginTop: 4 }}>{cantidad}</div>
+                  </div>
+                </div>
+
+                {/* Barra de recaudación del templo */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-400)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                      Recaudación del templo
+                    </span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: colorBarra }}>{porcentajeCobrado}%</span>
+                  </div>
+                  <div style={{ height: 10, background: 'var(--gray-100)', borderRadius: 99, overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%', width: `${porcentajeCobrado}%`,
+                      background: colorBarra, borderRadius: 99,
+                      transition: 'width 0.4s ease',
+                    }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11 }}>
+                    <span style={{ color: 'var(--success)' }}>
+                      Cobrado: {fmt(rec.cobrado)}
+                    </span>
+                    <span style={{ color: 'var(--danger)' }}>
+                      Falta: {fmt(rec.totalPendiente)} ({porcentajeFalta}%)
+                    </span>
                   </div>
                 </div>
 
